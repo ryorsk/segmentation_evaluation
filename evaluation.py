@@ -13,7 +13,7 @@ import color_labels
 
 # PLEASE CHANGE ##############################################
 COLOR_TYPE = "CLASS"
-N_CLASS = 47
+N_CLASS = 28
 GT_EXTENSION = ".png"
 RES_EXTENSION = ".png"
 # END ########################################################
@@ -39,18 +39,18 @@ gt_path = args.teach
 result_path = args.result
 
 
-@nb.jit
+@nb.jit(parallel=True)
 def calc_matrix(matrix, index, gt_img, res_img, color_array):
     img_height, img_width = gt_img.shape[:2]
-    for height in range(img_height):
-        for width in range(img_width):
-            for input in range(index):
+    for height in prange(img_height):
+        for width in prange(img_width):
+            for input in prange(index):
                 if (
                     gt_img[height, width, 2] == color_array[input, 0]
                     and gt_img[height, width, 1] == color_array[input, 1]
                     and gt_img[height, width, 0] == color_array[input, 2]
                 ):
-                    for output in range(index):
+                    for output in prange(index):
                         if (
                             res_img[height, width, 2] == color_array[output, 0]
                             and res_img[height, width, 1]
@@ -198,6 +198,8 @@ def main():
     # Class acc. = True pix each class / All pix each class
     ca = 0
     for C_num in range(index):
+        if matrix[C_num, :].sum() == 0.0:
+            continue
         ca += matrix[C_num, C_num] / matrix[C_num, :].sum()
     CA = ca / index
     print("Class Accuracy : " + str(CA * 100) + "%")
@@ -205,6 +207,13 @@ def main():
     # Mean IoU
     mi = 0
     for M_num in range(index):
+        if (
+            matrix[M_num, :].sum()
+            + matrix[:, M_num].sum()
+            - matrix[M_num, M_num]
+            == 0.0
+        ):
+            continue
         mi += matrix[M_num, M_num] / (
             matrix[M_num, :].sum()
             + matrix[:, M_num].sum()
