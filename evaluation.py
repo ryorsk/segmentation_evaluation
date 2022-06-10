@@ -8,6 +8,8 @@ import numpy as np
 import cv2
 import numba as nb
 from numba import prange
+import matplotlib.pyplot as plt
+from matplotlib import cm
 
 import color_labels
 
@@ -129,6 +131,49 @@ def extract_all_colors(gt_files, res_files):
     return color_array[:index, :]
 
 
+def confusionMatrix(matrix):
+    # confusion_matrix normalization
+    normalized_matrix = []
+    for i in matrix:
+        a = 0
+        temp_matrix = []
+        a = sum(i, 0)
+        for j in i:
+            if a == 0:
+                temp_matrix.append(0.0)
+            else:
+                temp_matrix.append(float(j) / float(a))
+        normalized_matrix.append(temp_matrix)
+    print(normalized_matrix)
+
+    # draw confusion_matrix
+    plt.clf()
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    res = ax.imshow(
+        np.array(normalized_matrix), cmap=cm.jet, interpolation="nearest"
+    )
+    cb = fig.colorbar(res)
+    cb.ax.set_yticklabels([str(i) + "%" for i in range(0, 101, 10)])
+    matrix = np.array(matrix)
+    width, height = matrix.shape
+    item_list = [str(i) for i in range(1, N_CLASS + 1)]
+    plt.xticks(range(width), item_list[:width], rotation=90)
+    plt.yticks(range(height), item_list[:height])
+    plt.tick_params(labelsize=7)
+    plt.subplots_adjust(left=0.05, bottom=0.10, right=0.95, top=0.95)
+    plt.ylabel("True Class")
+    plt.xlabel("Predicted Class")
+
+    for i in range(0, N_CLASS):
+        print(str(i + 1) + ": " + str(normalized_matrix[i][i]))
+
+    plt.savefig(os.path.join(result_path, "matrix.pdf"), format="pdf")
+    plt.savefig(os.path.join(result_path, "matrix.png"), format="png")
+
+    return normalized_matrix
+
+
 def evaluation(matrix, index, gt_files, res_files, color_array):
     num_gt_files = len(gt_files)
     print("Evaluation Start")
@@ -229,12 +274,17 @@ def main():
             + "This takes a lot of time."
         )
 
+    normalized_matrix = confusionMatrix(matrix)
+
     # file output
     f = open(os.path.join(result_path, "segment_result.txt"), "w")
     f.writelines("Total Result" + "\n")
     f.writelines("Global Accuracy:" + str(GA * 100) + "%" + "\n")
     f.writelines("Class Accuracy:" + str(CA * 100) + "%" + "\n")
     f.writelines("Mean IoU:" + str(MI * 100) + "%" "\n")
+    for i in range(0, N_CLASS):
+        f.writelines(str(i + 1) + ": " + str(normalized_matrix[i][i]) + "\n")
+    f.close()
 
 
 if __name__ == "__main__":
